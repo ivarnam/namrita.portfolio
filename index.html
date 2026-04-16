@@ -1311,21 +1311,32 @@ PAPER 4 — JANAK (Under Review): "Integrating Explanations in Learning LTL Spec
 
 BACKGROUND: PhD at IIT Bombay (2022-present), advisors Ashutosh Gupta & Krishna S. CGPA 8.45. B.Tech AKTU 2019. TCS 2019-2020. TA for CS213/293, CS228, CS433. Mentored 3 undergrads. RISC 2024 Poster Winner. CAV 2025, ATVA 2025 volunteer.`;
 
+
   try {
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',max_tokens:1000,system:SYS,
-        messages:[...chatHist,{role:'user',content:msg}]
+    // Build conversation history for Hugging Face
+    const pastUserInputs = chatHist.filter(h => h.role === 'user').map(h => h.content);
+    const generatedResponses = chatHist.filter(h => h.role === 'assistant').map(h => h.content);
+
+    const res = await fetch('https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer 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',  // Get free key from huggingface.co
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        inputs: {
+          past_user_inputs: pastUserInputs,
+          generated_responses: generatedResponses,
+          text: SYS + '\n\nUser: ' + msg  // Include system prompt in text
+        }
       })
     });
-    const data=await res.json();
+    const data = await res.json();
     removeTyping(tid);
-    const reply=data.content?.map(b=>b.text||'').join('')||'Sorry, could not connect.';
-    appendMsg('bot',reply);
-    chatHist.push({role:'user',content:msg},{role:'assistant',content:reply});
-    if(chatHist.length>20)chatHist=chatHist.slice(-20);
+    const reply = data.generated_text || data[0]?.generated_text || 'Sorry, could not connect.';
+    appendMsg('bot', reply);
+    chatHist.push({role: 'user', content: msg}, {role: 'assistant', content: reply});
+    if (chatHist.length > 20) chatHist = chatHist.slice(-20);
   } catch(e){removeTyping(tid);appendMsg('bot','Connection error. Please try again.');}
   btn.disabled=false;
 }
